@@ -1,9 +1,11 @@
 const express = require('express');
+const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 
 const PORT = Number(process.env.PORT) || 3000;
 const ENGINE_TIMEOUT_MS = Number(process.env.ENGINE_TIMEOUT_MS) || 5000;
+const INDEX_HTML = fs.readFileSync(path.resolve(__dirname, 'public/index.html'), 'utf8');
 
 class RoutingEngineBridge {
   constructor() {
@@ -282,7 +284,7 @@ app.use('/api', (_req, res) => {
 });
 
 app.get('*', (_req, res) => {
-  res.sendFile(path.resolve(__dirname, 'public/index.html'));
+  res.type('html').send(INDEX_HTML);
 });
 
 let server = null;

@@ -48,3 +48,7 @@ Thumbs.db
 # Test/cache
 .cache/
 Testing/
+
+# Local compiled binaries
+route_finder
+tests/route_finder_tests
