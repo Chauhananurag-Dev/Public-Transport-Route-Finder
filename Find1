@@ -1,0 +1,418 @@
+
+
+#include <algorithm>
+#include <iostream>
+#include <limits>
+#include <map>
+#include <queue>
+#include <set>
+#include <string>
+#include <vector>
+using namespace std;
+
+struct Edge {
+    string from, to;
+    int time;          // travel time in minutes
+    string type;       // Bus / Metro / Tram
+    string route;      // e.g. B1, M2, T3
+};
+
+static string lower(string s) {
+    transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return tolower(c); });
+    return s;
+}
+
+static string trim(const string& s) {
+    size_t a = s.find_first_not_of(" \t\r\n");
+    if (a == string::npos) return "";
+    size_t b = s.find_last_not_of(" \t\r\n");
+    return s.substr(a, b - a + 1);
+}
+
+class TransportNetwork {
+    map<string, vector<Edge>> adj;   // station -> outgoing connections
+
+public:
+    // ---------- network building ----------
+    bool addStation(const string& name) {
+        if (name.empty() || find(name)) return false;
+        adj[name];
+        return true;
+    }
+
+    // Returns an empty string on success, otherwise an error message.
+    string addConnection(const string& a, const string& b, int time,
+                         const string& type, const string& route) {
+        auto from = find(a), to = find(b);
+        if (!from || !to) return "Both stations must already exist.";
+        if (*from == *to) return "Source and destination must be different.";
+        if (time <= 0) return "Travel time must be a positive number.";
+        if (type.empty() || route.empty()) return "Transport type and route number are required.";
+        for (const Edge& e : adj[*from])
+            if (e.to == *to && e.route == route) return "That connection already exists on this route.";
+        adj[*from].push_back({*from, *to, time, type, route});
+        return "";
+    }
+
+    // Case-insensitive station lookup; returns the stored name.
+    const string* find(const string& name) const {
+        string key = lower(trim(name));
+        for (const auto& kv : adj)
+            if (lower(kv.first) == key) return &kv.first;
+        return nullptr;
+    }
+
+    // ---------- statistics ----------
+    int stationCount() const { return (int)adj.size(); }
+    int connectionCount() const {
+        int n = 0;
+        for (const auto& kv : adj) n += (int)kv.second.size();
+        return n;
+    }
+    int routeCount() const {
+        set<string> r;
+        for (const auto& kv : adj) for (const Edge& e : kv.second) r.insert(e.route);
+        return (int)r.size();
+    }
+
+    // ---------- algorithms ----------
+    // Dijkstra: minimises total travel time. Returns false if no route exists.
+    bool fastest(const string& src, const string& dst, vector<Edge>& path) const {
+        const int INF = numeric_limits<int>::max();
+        map<string, int> dist;
+        map<string, Edge> prev;
+        for (const auto& kv : adj) dist[kv.first] = INF;
+        dist[src] = 0;
+
+        using P = pair<int, string>;
+        priority_queue<P, vector<P>, greater<P>> pq;
+        pq.push({0, src});
+
+        while (!pq.empty()) {
+            auto [d, u] = pq.top();
+            pq.pop();
+            if (d > dist[u]) continue;       // stale entry
+            if (u == dst) break;
+            for (const Edge& e : adj.at(u)) {
+                if (d + e.time < dist[e.to]) {
+                    dist[e.to] = d + e.time;
+                    prev[e.to] = e;
+                    pq.push({dist[e.to], e.to});
+                }
+            }
+        }
+        if (dist[dst] == INF) return false;
+        return rebuild(prev, src, dst, path);
+    }
+
+    // BFS: minimises the number of connections. Returns false if no route exists.
+    bool fewestStops(const string& src, const string& dst, vector<Edge>& path) const {
+        map<string, Edge> prev;
+        set<string> seen{src};
+        queue<string> q;
+        q.push(src);
+
+        while (!q.empty()) {
+            string u = q.front();
+            q.pop();
+            if (u == dst) break;
+            for (const Edge& e : adj.at(u)) {
+                if (seen.insert(e.to).second) {
+                    prev[e.to] = e;
+                    q.push(e.to);
+                }
+            }
+        }
+        if (!seen.count(dst)) return false;
+        return rebuild(prev, src, dst, path);
+    }
+
+    // ---------- display ----------
+    void printStats() const {
+        cout << "\n=== Network Statistics ===\n"
+             << "Total Stations   : " << stationCount() << "\n"
+             << "Total Connections: " << connectionCount() << "\n"
+             << "Routes           : " << routeCount() << "\n";
+    }
+
+    void printStations() const {
+        cout << "\n=== All Stations ===\n";
+        for (const auto& kv : adj) cout << "  * " << kv.first << "\n";
+    }
+
+    void printNetwork() const {
+        cout << "\n=== Transport Network ===\n";
+        for (const auto& kv : adj) {
+            cout << kv.first << "\n";
+            if (kv.second.empty()) cout << "    (no outgoing connections)\n";
+            for (const Edge& e : kv.second)
+                cout << "    -> " << e.to << " (" << e.type << " " << e.route << ", " << e.time << " min)\n";
+        }
+    }
+
+    void printRoutes() const {
+        map<string, vector<Edge>> byRoute;   // string order: B1, B10, B11, ... B2
+        for (const auto& kv : adj) for (const Edge& e : kv.second) byRoute[e.route].push_back(e);
+        cout << "\n=== All Routes ===\n";
+        for (const auto& kv : byRoute) {
+            cout << kv.first << " (" << kv.second.front().type << ")\n";
+            for (const Edge& e : kv.second) cout << "    " << e.from << " -> " << e.to << "\n";
+        }
+    }
+
+    void search(const string& term) const {
+        string t = lower(trim(term));
+        bool any = false;
+        cout << "\n=== Search results for \"" << trim(term) << "\" ===\n";
+        for (const auto& kv : adj) {
+            if (lower(kv.first).find(t) == string::npos) continue;
+            int in = 0;
+            for (const auto& o : adj) for (const Edge& e : o.second) if (e.to == kv.first) ++in;
+            cout << "  * " << kv.first << "  (" << kv.second.size() << " outgoing, " << in << " incoming)\n";
+            any = true;
+        }
+        if (!any) cout << "  No stations match.\n";
+    }
+
+    static void printPath(const vector<Edge>& path) {
+        int total = 0;
+        for (const Edge& e : path) total += e.time;
+        cout << "\nTotal time: " << total << " min | Stops: " << path.size() << "\n";
+        int i = 1;
+        for (const Edge& e : path)
+            cout << "  " << i++ << ". " << e.from << " -> " << e.to
+                 << "  (" << e.type << " " << e.route << ", " << e.time << " min)\n";
+    }
+
+    // ---------- JSON output (used by the Node.js server in --api mode) ----------
+    static string js(const string& s) {
+        string o = "\"";
+        for (char c : s) {
+            switch (c) {
+                case '"': o += "\\\""; break;
+                case '\\': o += "\\\\"; break;
+                case '\n': o += "\\n"; break;
+                case '\r': o += "\\r"; break;
+                case '\t': o += "\\t"; break;
+                default: o += c;
+            }
+        }
+        return o + "\"";
+    }
+    static string edgeJson(const Edge& e) {
+        return "{\"from\":" + js(e.from) + ",\"to\":" + js(e.to) + ",\"time\":" + to_string(e.time) +
+               ",\"type\":" + js(e.type) + ",\"route\":" + js(e.route) + "}";
+    }
+    string statsJson() const {
+        return "{\"stations\":" + to_string(stationCount()) + ",\"connections\":" + to_string(connectionCount()) +
+               ",\"routes\":" + to_string(routeCount()) + "}";
+    }
+    string stationsJson() const {
+        string o = "{\"stations\":[";
+        bool first = true;
+        for (const auto& kv : adj) { o += (first ? "" : ",") + js(kv.first); first = false; }
+        return o + "]}";
+    }
+    string networkJson() const {
+        string o = "{\"network\":[";
+        bool first = true;
+        for (const auto& kv : adj) {
+            o += string(first ? "" : ",") + "{\"station\":" + js(kv.first) + ",\"out\":[";
+            for (size_t i = 0; i < kv.second.size(); ++i) o += (i ? "," : "") + edgeJson(kv.second[i]);
+            o += "]}";
+            first = false;
+        }
+        return o + "]}";
+    }
+    string routesJson() const {
+        map<string, vector<Edge>> byRoute;
+        for (const auto& kv : adj) for (const Edge& e : kv.second) byRoute[e.route].push_back(e);
+        string o = "{\"routes\":[";
+        bool first = true;
+        for (const auto& kv : byRoute) {
+            o += string(first ? "" : ",") + "{\"route\":" + js(kv.first) + ",\"type\":" + js(kv.second.front().type) + ",\"legs\":[";
+            for (size_t i = 0; i < kv.second.size(); ++i) o += (i ? "," : "") + edgeJson(kv.second[i]);
+            o += "]}";
+            first = false;
+        }
+        return o + "]}";
+    }
+    string searchJson(const string& term) const {
+        string t = lower(trim(term));
+        string o = "{\"results\":[";
+        bool first = true;
+        for (const auto& kv : adj) {
+            if (lower(kv.first).find(t) == string::npos) continue;
+            int in = 0;
+            for (const auto& x : adj) for (const Edge& e : x.second) if (e.to == kv.first) ++in;
+            o += string(first ? "" : ",") + "{\"name\":" + js(kv.first) + ",\"out\":" + to_string(kv.second.size()) +
+                 ",\"in\":" + to_string(in) + "}";
+            first = false;
+        }
+        return o + "]}";
+    }
+    string routeJson(bool fastestMode, const string& a, const string& b) const {
+        const string *src = find(a), *dst = find(b);
+        if (!src || !dst) return "{\"ok\":false,\"error\":\"Please enter valid station names.\"}";
+        if (*src == *dst) return "{\"ok\":false,\"error\":\"Source and destination are the same station.\"}";
+        vector<Edge> path;
+        bool ok = fastestMode ? fastest(*src, *dst, path) : fewestStops(*src, *dst, path);
+        if (!ok) return "{\"ok\":false,\"error\":" + js("No route found from " + *src + " to " + *dst + ".") + "}";
+        int total = 0;
+        string legs;
+        for (size_t i = 0; i < path.size(); ++i) { total += path[i].time; legs += (i ? "," : "") + edgeJson(path[i]); }
+        return "{\"ok\":true,\"total\":" + to_string(total) + ",\"stops\":" + to_string(path.size()) + ",\"path\":[" + legs + "]}";
+    }
+
+private:
+    static bool rebuild(const map<string, Edge>& prev, const string& src, const string& dst,
+                        vector<Edge>& path) {
+        path.clear();
+        for (string cur = dst; cur != src;) {
+            auto it = prev.find(cur);
+            if (it == prev.end()) return false;
+            path.push_back(it->second);
+            cur = it->second.from;
+        }
+        reverse(path.begin(), path.end());
+        return true;
+    }
+};
+
+// ---------- default data (21 stations, 26 connections, 24 routes) ----------
+static void loadDefaultNetwork(TransportNetwork& n) {
+    for (const char* s : {"Airport Terminal", "Central Station", "City Hall", "Downtown Hub",
+                          "East Avenue", "Green Valley", "Harbor Point", "Hospital Park",
+                          "Industrial Zone", "Lakeside", "Market Square", "Museum District",
+                          "North Terminal", "Old Town", "Park Drive", "Riverside Station",
+                          "Stadium", "Sunset Plaza", "Tech Center", "University Square", "West End"})
+        n.addStation(s);
+
+    struct C { const char *a, *b; int t; const char* r; };
+    const C data[] = {
+        {"Central Station", "North Terminal", 10, "B1"},   {"North Terminal", "University Square", 14, "B1"},
+        {"East Avenue", "Tech Center", 12, "B2"},          {"Tech Center", "Industrial Zone", 10, "B2"},
+        {"Downtown Hub", "Central Station", 8, "B3"},      {"Central Station", "Downtown Hub", 8, "B4"},
+        {"Downtown Hub", "City Hall", 9, "B5"},            {"City Hall", "Market Square", 7, "B6"},
+        {"Market Square", "Old Town", 11, "B7"},           {"Old Town", "Riverside Station", 13, "B8"},
+        {"Tech Center", "Downtown Hub", 16, "B9"},         {"Museum District", "City Hall", 6, "B10"},
+        {"City Hall", "Park Drive", 9, "B11"},             {"Hospital Park", "Museum District", 15, "B12"},
+        {"Riverside Station", "Central Station", 12, "B13"}, {"Harbor Point", "Airport Terminal", 22, "B14"},
+        {"University Square", "Stadium", 10, "B15"},       {"Stadium", "Lakeside", 12, "B16"},
+        {"Lakeside", "Harbor Point", 14, "B17"},           {"West End", "Downtown Hub", 11, "B18"},
+        {"Downtown Hub", "West End", 11, "B19"},           {"Park Drive", "Green Valley", 13, "B20"},
+        {"Green Valley", "Sunset Plaza", 9, "B21"},        {"Sunset Plaza", "East Avenue", 10, "B22"},
+        {"North Terminal", "Hospital Park", 18, "B23"},    {"Airport Terminal", "Central Station", 25, "B24"},
+    };
+    for (const C& c : data) n.addConnection(c.a, c.b, c.t, "Bus", c.r);
+}
+
+// ---------- console helpers ----------
+static string ask(const string& prompt) {
+    cout << prompt;
+    string s;
+    getline(cin, s);
+    return trim(s);
+}
+
+static void routeQuery(const TransportNetwork& net, bool fastestMode) {
+    string a = ask("Source station     : "), b = ask("Destination station: ");
+    const string *src = net.find(a), *dst = net.find(b);
+    if (!src || !dst) { cout << "Please enter valid station names.\n"; return; }
+    if (*src == *dst) { cout << "Source and destination are the same station.\n"; return; }
+    vector<Edge> path;
+    bool ok = fastestMode ? net.fastest(*src, *dst, path) : net.fewestStops(*src, *dst, path);
+    if (!ok) { cout << "No route found from " << *src << " to " << *dst << ".\n"; return; }
+    TransportNetwork::printPath(path);
+}
+
+// ---------- API mode: one tab-separated command per line in, one JSON line out ----------
+static vector<string> splitTabs(const string& s) {
+    vector<string> parts;
+    size_t start = 0, p;
+    while ((p = s.find('\t', start)) != string::npos) { parts.push_back(s.substr(start, p - start)); start = p + 1; }
+    parts.push_back(s.substr(start));
+    return parts;
+}
+
+static string result(bool ok, const string& message) {
+    return string("{\"ok\":") + (ok ? "true" : "false") + ",\"message\":" + TransportNetwork::js(message) + "}";
+}
+
+static void apiLoop(TransportNetwork& net) {
+    string line;
+    while (getline(cin, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        vector<string> f = splitTabs(line);
+        f.resize(max<size_t>(f.size(), 6));
+        const string& cmd = f[0];
+        string out;
+        if (cmd == "STATS") out = net.statsJson();
+        else if (cmd == "STATIONS") out = net.stationsJson();
+        else if (cmd == "NETWORK") out = net.networkJson();
+        else if (cmd == "ROUTES") out = net.routesJson();
+        else if (cmd == "SEARCH") out = net.searchJson(f[1]);
+        else if (cmd == "FAST") out = net.routeJson(true, f[1], f[2]);
+        else if (cmd == "MIN") out = net.routeJson(false, f[1], f[2]);
+        else if (cmd == "ADDSTATION") {
+            string n = trim(f[1]);
+            out = n.empty() ? result(false, "Please enter a station name.")
+                : net.addStation(n) ? result(true, "Station \u201c" + n + "\u201d added.")
+                                    : result(false, "That station already exists.");
+        } else if (cmd == "ADDCONN") {
+            int t = 0;
+            try { t = stoi(f[3]); } catch (...) { t = 0; }
+            string err = net.addConnection(f[1], f[2], t, trim(f[4]), trim(f[5]));
+            out = err.empty() ? result(true, "Connection added.") : result(false, err);
+        } else out = result(false, "Unknown command.");
+        cout << out << "\n" << flush;
+    }
+}
+
+int main(int argc, char** argv) {
+    TransportNetwork net;
+    loadDefaultNetwork(net);
+
+    if (argc > 1 && string(argv[1]) == "--api") {
+        apiLoop(net);
+        return 0;
+    }
+
+    cout << "==========================================\n"
+         << "     PUBLIC TRANSPORT ROUTE FINDER\n"
+         << "==========================================\n";
+
+    for (;;) {
+        cout << "\n1. Dashboard (statistics, stations, network)\n"
+             << "2. Fastest route (Dijkstra)\n"
+             << "3. Minimum stops route (BFS)\n"
+             << "4. Search station\n"
+             << "5. All routes\n"
+             << "6. Add station\n"
+             << "7. Add connection\n"
+             << "0. Exit\n";
+        string choice = ask("Choose an option: ");
+
+        if (choice == "1") { net.printStats(); net.printStations(); net.printNetwork(); }
+        else if (choice == "2") routeQuery(net, true);
+        else if (choice == "3") routeQuery(net, false);
+        else if (choice == "4") net.search(ask("Station name (or part of it): "));
+        else if (choice == "5") net.printRoutes();
+        else if (choice == "6") {
+            string n = ask("New station name: ");
+            cout << (net.addStation(n) ? "Station added.\n" : "Invalid name or station already exists.\n");
+        } else if (choice == "7") {
+            string a = ask("Source station     : "), b = ask("Destination station: ");
+            int t = 0;
+            try { t = stoi(ask("Travel time (min)   : ")); } catch (...) { t = 0; }
+            string type = ask("Transport type (Bus/Metro/Tram): ");
+            string route = ask("Route number (e.g. B1, M2, T3): ");
+            string err = net.addConnection(a, b, t, type, route);
+            cout << (err.empty() ? "Connection added.\n" : err + "\n");
+        } else if (choice == "0") { cout << "Goodbye!\n"; break; }
+        else cout << "Invalid option.\n";
+
+        if (!cin) break;   // input closed
+    }
+    return 0;
+}
