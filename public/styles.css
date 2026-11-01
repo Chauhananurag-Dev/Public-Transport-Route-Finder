@@ -1,0 +1,95 @@
+:root {
+  color-scheme: light;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: #f5f7fb;
+  color: #1b1f24;
+}
+
+.header {
+  background: linear-gradient(135deg, #1e4fa3, #0a9bbb);
+  color: white;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.container {
+  max-width: 1100px;
+  margin: 1rem auto;
+  padding: 0 1rem 2rem;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.card {
+  background: white;
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+}
+
+label,
+legend {
+  font-weight: 600;
+  display: block;
+  margin-top: 0.5rem;
+}
+
+input,
+select,
+button {
+  width: 100%;
+  padding: 0.55rem;
+  margin-top: 0.25rem;
+  border-radius: 8px;
+  border: 1px solid #c9d2df;
+}
+
+button {
+  background: #1459c0;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  margin-top: 0.8rem;
+}
+
+button:disabled {
+  background: #8ea2c7;
+  cursor: not-allowed;
+}
+
+.result {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: #f1f5fc;
+  border-radius: 8px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
+  gap: 0.75rem;
+}
+
+.stat {
+  background: #eef3fb;
+  border-radius: 10px;
+  padding: 0.7rem;
+}
+
+.route-leg {
+  border-left: 3px solid #2b6ccb;
+  padding-left: 0.65rem;
+  margin: 0.5rem 0;
+}
+
+.success { color: #0a7b2f; }
+.error { color: #b42318; }
+
+@media (max-width: 640px) {
+  .stats-grid { grid-template-columns: 1fr; }
+}
