@@ -1,0 +1,27 @@
+{
+  "name": "transitflow-public-transport-route-finder",
+  "version": "1.0.0",
+  "description": "TransitFlow – Public Transport Route Finder",
+  "main": "server.js",
+  "scripts": {
+    "build:engine": "g++ -std=c++17 -O2 route_finder.cpp -o route_finder",
+    "test:engine": "g++ -std=c++17 -O2 tests/route_finder_tests.cpp -o tests/route_finder_tests && ./tests/route_finder_tests",
+    "test:api": "node --test tests/api.test.js",
+    "test": "npm run build:engine && npm run test:engine && npm run test:api",
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "transit",
+    "dijkstra",
+    "bfs",
+    "graph",
+    "nodejs",
+    "cpp"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.1"
+  }
+}

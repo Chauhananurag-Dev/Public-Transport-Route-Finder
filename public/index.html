@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TransitFlow – Public Transport Route Finder</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="header">
+    <h1>TransitFlow</h1>
+    <p>Public Transport Route Finder</p>
+    <p id="engineStatus" aria-live="polite">Routing Engine: Checking...</p>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2>Route Finder</h2>
+      <form id="routeForm">
+        <label for="fromStation">From Station</label>
+        <select id="fromStation" required></select>
+
+        <label for="toStation">To Station</label>
+        <select id="toStation" required></select>
+
+        <fieldset>
+          <legend>Routing Mode</legend>
+          <label><input type="radio" name="mode" value="fast" checked> Fastest Route</label>
+          <label><input type="radio" name="mode" value="min"> Minimum Stops</label>
+        </fieldset>
+
+        <button type="submit" id="findRouteBtn">Search Route</button>
+      </form>
+      <div id="routeResult" class="result" aria-live="polite">Select a starting station and destination to find a route.</div>
+    </section>
+
+    <section class="card">
+      <h2>Dashboard</h2>
+      <div id="stats" class="stats-grid"></div>
+    </section>
+
+    <section class="card">
+      <h2>Station Search</h2>
+      <form id="searchForm">
+        <label for="searchQuery">Search stations</label>
+        <input id="searchQuery" type="text" placeholder="central">
+        <button type="submit">Search</button>
+      </form>
+      <div id="searchResults"></div>
+    </section>
+
+    <section class="card">
+      <h2>Network Connections</h2>
+      <div id="networkResults">Loading network...</div>
+    </section>
+
+    <section class="card">
+      <h2>Administration</h2>
+      <form id="addStationForm">
+        <label for="stationName">Add Station</label>
+        <input id="stationName" type="text" required>
+        <button type="submit">Add Station</button>
+      </form>
+
+      <form id="addConnectionForm">
+        <h3>Add Connection</h3>
+        <label for="connFrom">From</label>
+        <select id="connFrom" required></select>
+        <label for="connTo">To</label>
+        <select id="connTo" required></select>
+        <label for="connTime">Travel time (minutes)</label>
+        <input id="connTime" type="number" min="1" required>
+        <label for="connType">Transport type</label>
+        <input id="connType" type="text" required>
+        <label for="connRoute">Route number</label>
+        <input id="connRoute" type="text" required>
+        <button type="submit">Add Connection</button>
+      </form>
+      <div id="adminMessage" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>
